@@ -1,39 +1,50 @@
 import XLSX from 'xlsx';
 
-export function readSheetRows(buffer, sheetName = null, headerRowIndex = 0) {
-  const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
-  const sheet = sheetName ? workbook.Sheets[sheetName] : workbook.Sheets[workbook.SheetNames[0]];
-  if (!sheet) throw new Error(`Sheet not found: ${sheetName || workbook.SheetNames[0]}`);
+export function readSheetRows(filePathOrBuffer, sheetName = null, headerRowIndex = 0) {
+  const workbook = typeof filePathOrBuffer === 'string'
+    ? XLSX.readFile(filePathOrBuffer, { cellDates: true })
+    : XLSX.read(filePathOrBuffer, { type: 'buffer', cellDates: true });
 
-  const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: false });
-  const headers = (raw[headerRowIndex] || []).map((h) => normalizeHeader(h));
-  const rows = raw.slice(headerRowIndex + 1)
-    .filter((row) => row.some((cell) => cell !== null && cell !== undefined && String(cell).trim() !== ''))
-    .map((row) => {
-      const record = {};
-      headers.forEach((header, index) => {
-        if (header) record[header] = cleanCell(row[index]);
-      });
-      return record;
-    });
+  const targetSheetName = sheetName || workbook.SheetNames[0];
+  const sheet = workbook.Sheets[targetSheetName];
 
-  return { headers, rows };
-}
+  if (!sheet) {
+    throw new Error(`Sheet not found: ${targetSheetName}`);
+  }
 
-export function normalizeHeader(value) {
-  if (!value) return '';
-  return String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-}
+  const rows = XLSX.utils.sheet_to_json(sheet, {
+    defval: '',
+    range: headerRowIndex,
+    raw: false,
+  });
 
-export function cleanCell(value) {
-  if (value === undefined || value === null) return null;
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
-  const text = String(value).trim();
-  return text === '' ? null : text;
+  return {
+    sheetName: targetSheetName,
+    rows: rows.map(normalizeRowKeys),
+  };
 }
 
 export function toNumber(value) {
   if (value === null || value === undefined || value === '') return null;
-  const n = Number(String(value).replace(/,/g, ''));
-  return Number.isFinite(n) ? n : null;
+
+  const cleaned = String(value).replace(/[$,]/g, '').trim();
+  const number = Number(cleaned);
+
+  return Number.isNaN(number) ? null : number;
+}
+
+function normalizeRowKeys(row) {
+  const normalized = {};
+
+  Object.entries(row).forEach(([key, value]) => {
+    const cleanKey = String(key)
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+
+    normalized[cleanKey] = value;
+  });
+
+  return normalized;
 }
