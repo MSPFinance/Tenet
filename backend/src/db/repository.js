@@ -78,9 +78,17 @@ export async function upsertOpenInvoices(rows) {
     })
     .filter(Boolean);
 
-  if (!cleanRows.length) return [];
+  const uniqueRows = dedupeByKey(
+  cleanRows,
+  (row) => `${row.invoice_number}||${row.supplier_number}||${row.source_region}`
+);
 
-  const { data, error } = await supabase
+if (!uniqueRows.length) return [];
+
+const { data, error } = await supabase
+  .from('open_invoices')
+  .upsert(uniqueRows, { onConflict: 'invoice_number,supplier_number,source_region' })
+  .select('*');
     .from('open_invoices')
     .upsert(cleanRows, { onConflict: 'invoice_number,supplier_number,source_region' })
     .select('*');
@@ -214,4 +222,7 @@ function parseList(value) {
     .split(/[\n,;|]+/g)
     .map(normalizeText)
     .filter(Boolean);
+    function dedupeByKey(items, keyFn) {
+  return [...new Map(items.map((item) => [keyFn(item), item])).values()];
+}
 }
