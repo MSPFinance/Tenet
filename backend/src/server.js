@@ -14,7 +14,13 @@ const app = express();
 
 app.use(
   cors({
-    origin: env.frontendOrigin,
+    origin: [
+      env.frontendOrigin,
+      'https://tenet-flame.vercel.app',
+      'https://tenet-git-main-margaritapenon-6388s-projects.vercel.app'
+    ],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
   })
 );
 
