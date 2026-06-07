@@ -12,7 +12,11 @@ validateEnv();
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: env.frontendOrigin,
+  })
+);
 
 app.use(
   express.json({
